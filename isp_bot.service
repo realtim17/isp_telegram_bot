@@ -1,0 +1,28 @@
+[Unit]
+Description=ISP Telegram Bot - Internet Provider Connection Reports Bot
+After=network.target
+
+[Service]
+Type=simple
+User=your_username
+WorkingDirectory=/path/to/isp_telegram_bot
+Environment="PATH=/path/to/isp_telegram_bot/venv/bin"
+ExecStart=/path/to/isp_telegram_bot/venv/bin/python bot.py
+
+# Перезапуск при падении
+Restart=always
+RestartSec=10
+
+# Логирование
+StandardOutput=append:/path/to/isp_telegram_bot/bot.log
+StandardError=append:/path/to/isp_telegram_bot/bot.log
+
+# Безопасность
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/path/to/isp_telegram_bot
+
+[Install]
+WantedBy=multi-user.target
