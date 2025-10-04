@@ -195,11 +195,33 @@ async def upload_photos(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         keyboard = [[InlineKeyboardButton("➡️ Продолжить", callback_data='continue_from_photos')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(
-            f"✅ Фото {len(photos)}/10 загружено.\n\n"
-            f"Можете загрузить еще фото или нажмите 'Продолжить'.",
-            reply_markup=reply_markup
-        )
+        # Если это первое фото - отправляем новое сообщение и сохраняем его ID
+        if len(photos) == 1:
+            sent_message = await update.message.reply_text(
+                f"✅ Фото {len(photos)}/10 загружено.\n\n"
+                f"Можете загрузить еще фото или нажмите 'Продолжить'.",
+                reply_markup=reply_markup
+            )
+            context.user_data['upload_message_id'] = sent_message.message_id
+        else:
+            # Для последующих фото - редактируем существующее сообщение
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=context.user_data.get('upload_message_id'),
+                    text=f"✅ Фото {len(photos)}/10 загружено.\n\n"
+                         f"Можете загрузить еще фото или нажмите 'Продолжить'.",
+                    reply_markup=reply_markup
+                )
+            except Exception as e:
+                # Если не удалось отредактировать (например, сообщение удалено), отправляем новое
+                sent_message = await update.message.reply_text(
+                    f"✅ Фото {len(photos)}/10 загружено.\n\n"
+                    f"Можете загрузить еще фото или нажмите 'Продолжить'.",
+                    reply_markup=reply_markup
+                )
+                context.user_data['upload_message_id'] = sent_message.message_id
+        
         return UPLOAD_PHOTOS
     
     return UPLOAD_PHOTOS
@@ -890,6 +912,22 @@ async def delete_employee_confirm(update: Update, context: ContextTypes.DEFAULT_
 
 # ==================== ОБРАБОТЧИКИ КНОПОК КЛАВИАТУРЫ ====================
 
+async def cancel_and_start_new(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Отмена текущего процесса - новое действие запустится автоматически через entry_points"""
+    # Очищаем данные пользователя
+    context.user_data.clear()
+    
+    # Уведомляем об отмене предыдущего действия
+    await update.message.reply_text(
+        "⚠️ Предыдущее действие отменено.",
+        reply_markup=get_main_keyboard()
+    )
+    
+    # Завершаем текущий ConversationHandler
+    # Новое действие запустится автоматически через entry_points другого ConversationHandler
+    return ConversationHandler.END
+
+
 async def handle_keyboard_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработка нажатий кнопок основной клавиатуры"""
     text = update.message.text
@@ -917,6 +955,16 @@ def main():
     # Создаем приложение
     application = Application.builder().token(token).build()
     
+    # Фильтр для ввода данных (исключает кнопки главного меню)
+    text_input_filter = (
+        filters.TEXT & 
+        ~filters.COMMAND & 
+        ~filters.Regex('^(📝 Новое подключение|📊 Сводный отчет|👥 Управление сотрудниками|ℹ️ Помощь)$')
+    )
+    
+    # Фильтр для кнопок главного меню
+    menu_buttons_filter = filters.Regex('^(📝 Новое подключение|📊 Сводный отчет|👥 Управление сотрудниками|ℹ️ Помощь)$')
+    
     # Обработчик создания подключения
     connection_conv = ConversationHandler(
         entry_points=[
@@ -928,15 +976,18 @@ def main():
                 MessageHandler(filters.PHOTO, upload_photos),
                 CallbackQueryHandler(ask_address, pattern='^(skip_photos|continue_from_photos)$')
             ],
-            ENTER_ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_address)],
-            ENTER_ROUTER: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_router)],
-            ENTER_PORT: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_port)],
-            ENTER_FIBER: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_fiber)],
-            ENTER_TWISTED: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_twisted)],
+            ENTER_ADDRESS: [MessageHandler(text_input_filter, enter_address)],
+            ENTER_ROUTER: [MessageHandler(text_input_filter, enter_router)],
+            ENTER_PORT: [MessageHandler(text_input_filter, enter_port)],
+            ENTER_FIBER: [MessageHandler(text_input_filter, enter_fiber)],
+            ENTER_TWISTED: [MessageHandler(text_input_filter, enter_twisted)],
             SELECT_EMPLOYEES: [CallbackQueryHandler(select_employee_toggle, pattern='^(emp_|employees_done)')],
             CONFIRM: [CallbackQueryHandler(confirm_connection, pattern='^confirm_')]
         },
-        fallbacks=[CommandHandler('cancel', cancel_command)]
+        fallbacks=[
+            CommandHandler('cancel', cancel_command),
+            MessageHandler(menu_buttons_filter, cancel_and_start_new)
+        ]
     )
     
     # Обработчик отчетов
@@ -949,7 +1000,10 @@ def main():
             SELECT_REPORT_EMPLOYEE: [CallbackQueryHandler(report_select_period, pattern='^(rep_emp_|report_cancel)')],
             SELECT_REPORT_PERIOD: [CallbackQueryHandler(report_generate, pattern='^(period_|period_cancel)')]
         },
-        fallbacks=[CommandHandler('cancel', cancel_command)]
+        fallbacks=[
+            CommandHandler('cancel', cancel_command),
+            MessageHandler(menu_buttons_filter, cancel_and_start_new)
+        ]
     )
     
     # Обработчик управления сотрудниками
@@ -960,10 +1014,13 @@ def main():
         ],
         states={
             MANAGE_ACTION: [CallbackQueryHandler(manage_action, pattern='^(manage_|back_to_manage)')],
-            ADD_EMPLOYEE_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_employee_name)],
+            ADD_EMPLOYEE_NAME: [MessageHandler(text_input_filter, add_employee_name)],
             DELETE_EMPLOYEE_SELECT: [CallbackQueryHandler(delete_employee_confirm, pattern='^(del_emp_|delete_cancel)')]
         },
-        fallbacks=[CommandHandler('cancel', cancel_command)]
+        fallbacks=[
+            CommandHandler('cancel', cancel_command),
+            MessageHandler(menu_buttons_filter, cancel_and_start_new)
+        ]
     )
     
     # Добавляем обработчики
