@@ -7,6 +7,8 @@ from datetime import datetime
 from typing import List, Dict
 import logging
 
+from config import CONNECTION_TYPES
+
 logger = logging.getLogger(__name__)
 
 
@@ -82,6 +84,7 @@ class ReportGenerator:
         # Заголовки столбцов (строка 6)
         headers = [
             'Столбец',
+            'Тип',
             'Исполнители',
             'Адрес подключения',
             'Модель роутера',
@@ -102,13 +105,14 @@ class ReportGenerator:
         
         # Ширина столбцов
         ws.column_dimensions['A'].width = 12  # Столбец
-        ws.column_dimensions['B'].width = 25  # Исполнители
-        ws.column_dimensions['C'].width = 30  # Адрес
-        ws.column_dimensions['D'].width = 15  # Модель роутера
-        ws.column_dimensions['E'].width = 10  # Порт
-        ws.column_dimensions['F'].width = 12  # ВОЛС
-        ws.column_dimensions['G'].width = 12  # Витая пара
-        ws.column_dimensions['H'].width = 18  # Дата
+        ws.column_dimensions['B'].width = 15  # Тип
+        ws.column_dimensions['C'].width = 25  # Исполнители
+        ws.column_dimensions['D'].width = 30  # Адрес
+        ws.column_dimensions['E'].width = 15  # Модель роутера
+        ws.column_dimensions['F'].width = 10  # Порт
+        ws.column_dimensions['G'].width = 12  # ВОЛС
+        ws.column_dimensions['H'].width = 12  # Витая пара
+        ws.column_dimensions['I'].width = 18  # Дата
         
         # Данные подключений
         current_row = 7
@@ -123,8 +127,13 @@ class ReportGenerator:
             # Список исполнителей через запятую
             executors = ', '.join(conn['all_employees'])
             
+            # Получаем читаемое название типа подключения
+            conn_type = conn.get('connection_type', 'mkd')
+            type_name = CONNECTION_TYPES.get(conn_type, conn_type)
+            
             row_data = [
                 idx,  # Номер по порядку
+                type_name,  # Тип подключения
                 executors,
                 conn['address'],
                 conn['router_model'],
@@ -139,7 +148,7 @@ class ReportGenerator:
                 cell.value = value
                 cell.border = border
                 
-                if col_num in [6, 7]:  # Числовые столбцы
+                if col_num in [7, 8]:  # Числовые столбцы (сдвинулись на 1)
                     cell.alignment = number_alignment
                     cell.number_format = '0.00'
                 else:

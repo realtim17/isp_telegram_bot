@@ -1,0 +1,81 @@
+═══════════════════════════════════════════════════════════════
+  ✅ ИСПРАВЛЕНА КНОПКА "НОВОЕ ПОДКЛЮЧЕНИЕ" - 07.11.2025
+═══════════════════════════════════════════════════════════════
+
+ПРОБЛЕМА:
+---------
+Кнопка "📝 Новое подключение" не работала - бот не реагировал
+на нажатие.
+
+ПРИЧИНА:
+--------
+1. Отсутствовал импорт ContextTypes в bot.py
+2. Fallback handler был добавлен, но использовал неопределённый тип
+
+РЕШЕНИЕ:
+--------
+✓ Добавлен импорт ContextTypes в bot.py
+✓ Добавлен fallback handler для неизвестных команд
+✓ Добавлен импорт get_main_keyboard
+✓ Изменён порядок entry_points в connection_conv
+
+ИЗМЕНЁННЫЕ ФАЙЛЫ:
+------------------
+
+📝 bot.py
+   └─ Строка 12: добавлен импорт ContextTypes
+   └─ Строка 35: добавлен импорт get_main_keyboard
+   └─ Строки 135-145: добавлен fallback handler для неизвестных команд
+
+📝 handlers/connection.py
+   └─ Строки 451-453: изменён порядок entry_points
+      (MessageHandler перед CallbackQueryHandler)
+
+ТЕХНИЧЕСКИЕ ДЕТАЛИ:
+-------------------
+
+БЫЛО:
+  from telegram.ext import (
+      Application,
+      CommandHandler,
+      MessageHandler,
+      CallbackQueryHandler,
+      ConversationHandler,
+      filters
+  )
+
+СТАЛО:
+  from telegram.ext import (
+      Application,
+      CommandHandler,
+      MessageHandler,
+      CallbackQueryHandler,
+      ConversationHandler,
+      ContextTypes,  ← ДОБАВЛЕНО
+      filters
+  )
+
+ДОБАВЛЕН FALLBACK:
+  async def unknown_command(update, context):
+      await update.message.reply_text(
+          "Неизвестная команда. Используйте кнопки меню...",
+          reply_markup=get_main_keyboard()
+      )
+
+СТАТУС:
+-------
+✅ Кнопка "📝 Новое подключение" работает
+✅ Бот перезапущен (PID: 46385)
+✅ Все обработчики настроены корректно
+✅ Fallback для неизвестных команд добавлен
+
+ТЕСТИРОВАНИЕ:
+-------------
+✓ Кнопка "📝 Новое подключение" - работает
+✓ Команда /new - работает (через connection_conv)
+✓ Неизвестные команды - показывают подсказку
+
+═══════════════════════════════════════════════════════════════
+
+Готово! Кнопка работает! 🎉
+
