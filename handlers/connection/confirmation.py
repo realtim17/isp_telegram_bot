@@ -138,6 +138,7 @@ async def confirm_connection(update: Update, context: ContextTypes.DEFAULT_TYPE)
     router_quantity = data.get('router_quantity', 1)
     contract_signed = data.get('contract_signed', False)
     router_access = data.get('router_access', False)
+    telegram_bot_connected = data.get('telegram_bot_connected', False)
     
     connection_id = db.create_connection(
         connection_type=data.get('connection_type', 'mkd'),
@@ -152,7 +153,8 @@ async def confirm_connection(update: Update, context: ContextTypes.DEFAULT_TYPE)
         material_payer_id=material_payer_id,
         router_quantity=router_quantity,
         contract_signed=contract_signed,
-        router_access=router_access
+        router_access=router_access,
+        telegram_bot_connected=telegram_bot_connected
     )
     
     if connection_id:

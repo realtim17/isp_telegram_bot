@@ -7,8 +7,8 @@ from telegram.ext import ConversationHandler, MessageHandler, CallbackQueryHandl
 from config import (
     SELECT_CONNECTION_TYPE, UPLOAD_PHOTOS, ENTER_ADDRESS, SELECT_ROUTER,
     ENTER_ROUTER_QUANTITY_CONNECTION, ROUTER_ACCESS, ENTER_PORT, ENTER_FIBER,
-    ENTER_TWISTED, CONTRACT_SIGNED, SELECT_EMPLOYEES, SELECT_MATERIAL_PAYER,
-    SELECT_ROUTER_PAYER, CONFIRM
+    ENTER_TWISTED, CONTRACT_SIGNED, TELEGRAM_BOT_CONFIRM, SELECT_EMPLOYEES, 
+    SELECT_MATERIAL_PAYER, SELECT_ROUTER_PAYER, CONFIRM
 )
 
 # Импорт обработчиков шагов
@@ -24,7 +24,8 @@ from handlers.connection.steps import (
     enter_port,
     enter_fiber,
     enter_twisted,
-    contract_signed
+    contract_signed,
+    telegram_bot_confirm
 )
 
 # Импорт обработчиков выбора исполнителей
@@ -91,6 +92,9 @@ connection_conv = ConversationHandler(
         ],
         CONTRACT_SIGNED: [
             CallbackQueryHandler(contract_signed, pattern='^(contract_confirmed|cancel_connection)$')
+        ],
+        TELEGRAM_BOT_CONFIRM: [
+            CallbackQueryHandler(telegram_bot_confirm, pattern='^(telegram_bot_confirmed|telegram_bot_skipped|cancel_connection)$')
         ],
         SELECT_EMPLOYEES: [
             CallbackQueryHandler(select_employee_toggle, pattern='^(emp_.*|employees_done)$'),

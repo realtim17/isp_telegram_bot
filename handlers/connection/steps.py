@@ -31,7 +31,7 @@ async def new_connection_start(update: Update, context: ContextTypes.DEFAULT_TYP
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     text = """
-🏢 <b>Шаг 1/11: Тип подключения</b>
+🏢 <b>Шаг 1/12: Тип подключения</b>
 
 Выберите тип подключения:
 
@@ -65,7 +65,7 @@ async def select_connection_type(update: Update, context: ContextTypes.DEFAULT_T
     text = f"""
 ✅ Тип подключения: <b>{type_name}</b>
 
-📸 <b>Шаг 2/11: Загрузка фотографий</b>
+📸 <b>Шаг 2/12: Загрузка фотографий</b>
 
 Загрузите фотографии с места подключения (до {MAX_PHOTOS} штук).
 После загрузки фото нажмите "Продолжить".
@@ -160,7 +160,7 @@ async def ask_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     
     await query.edit_message_text(
         f"✅ Загружено фото: {photos_count}\n\n"
-        f"📍 <b>Шаг 3/11: Адрес подключения</b>\n\n"
+        f"📍 <b>Шаг 3/12: Адрес подключения</b>\n\n"
         f"Введите адрес подключения абонента:",
         parse_mode='HTML'
     )
@@ -216,9 +216,9 @@ async def enter_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     
     # Убираем клавиатуру отмены и показываем inline-клавиатуру
     if router_names:
-        message_text = f"✅ Адрес: {address}\n\n🌐 <b>Шаг 4/11: Модель роутера</b>\n\nВыберите роутер из списка или пропустите:"
+        message_text = f"✅ Адрес: {address}\n\n🌐 <b>Шаг 4/12: Модель роутера</b>\n\nВыберите роутер из списка или пропустите:"
     else:
-        message_text = f"✅ Адрес: {address}\n\n🌐 <b>Шаг 4/11: Модель роутера</b>\n\n⚠️ В системе нет зарегистрированных роутеров.\nВы можете пропустить этот шаг:"
+        message_text = f"✅ Адрес: {address}\n\n🌐 <b>Шаг 4/12: Модель роутера</b>\n\n⚠️ В системе нет зарегистрированных роутеров.\nВы можете пропустить этот шаг:"
     
     await update.message.reply_text(
         message_text,
@@ -252,7 +252,7 @@ async def select_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         
         await query.edit_message_text(
             f"⏭️ Роутер: пропущено\n\n"
-            f"🔐 <b>Шаг 6/11: Доступ на роутер</b>\n\n"
+            f"🔐 <b>Шаг 6/12: Доступ на роутер</b>\n\n"
             f"Подтвердите, что доступ на роутер открыт:",
             parse_mode='HTML'
         )
@@ -274,7 +274,7 @@ async def select_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     
     await query.edit_message_text(
         f"✅ Роутер: {router_name}\n\n"
-        f"📦 <b>Шаг 5/11: Количество роутеров</b>\n\n"
+        f"📦 <b>Шаг 5/12: Количество роутеров</b>\n\n"
         f"Введите количество роутеров (по умолчанию: 1):",
         parse_mode='HTML'
     )
@@ -322,7 +322,7 @@ async def enter_router_quantity_connection(update: Update, context: ContextTypes
         
         await update.message.reply_text(
             f"✅ Количество роутеров: {router_quantity}\n\n"
-            f"🔐 <b>Шаг 6/11: Доступ на роутер</b>\n\n"
+            f"🔐 <b>Шаг 6/12: Доступ на роутер</b>\n\n"
             f"Подтвердите, что доступ на роутер открыт:",
             reply_markup=ReplyKeyboardRemove(),
             parse_mode='HTML'
@@ -369,7 +369,7 @@ async def router_access_handler(update: Update, context: ContextTypes.DEFAULT_TY
     
     await query.edit_message_text(
         f"{status_text}\n\n"
-        f"🔌 <b>Шаг 7/11: Номер порта</b>\n\n"
+        f"🔌 <b>Шаг 7/12: Номер порта</b>\n\n"
         f"Введите номер порта или пропустите:",
         parse_mode='HTML'
     )
@@ -404,7 +404,7 @@ async def enter_port(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             
             await query.edit_message_text(
                 f"⏭️ Порт: пропущено\n\n"
-                f"📏 <b>Шаг 8/11: Метраж ВОЛС</b>\n\n"
+                f"📏 <b>Шаг 8/12: Метраж ВОЛС</b>\n\n"
                 f"Введите количество метров ВОЛС (волоконно-оптической линии связи):",
                 parse_mode='HTML'
             )
@@ -441,7 +441,7 @@ async def enter_port(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     
     await update.message.reply_text(
         f"✅ Порт: {port}\n\n"
-        f"📏 <b>Шаг 8/11: Метраж ВОЛС</b>\n\n"
+        f"📏 <b>Шаг 8/12: Метраж ВОЛС</b>\n\n"
         f"Введите количество метров ВОЛС (волоконно-оптической линии связи):",
         reply_markup=reply_markup_kb,
         parse_mode='HTML'
@@ -477,7 +477,7 @@ async def enter_fiber(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         
         await update.message.reply_text(
             f"✅ ВОЛС: {fiber_meters} м\n\n"
-            f"📏 <b>Шаг 9/11: Метраж витой пары</b>\n\n"
+            f"📏 <b>Шаг 9/12: Метраж витой пары</b>\n\n"
             f"Введите количество метров витой пары:",
             parse_mode='HTML'
         )
@@ -524,7 +524,7 @@ async def enter_twisted(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         
         await update.message.reply_text(
             f"✅ Витая пара: {twisted_meters} м\n\n"
-            f"📄 <b>Шаг 10/11: Договор подписан</b>\n\n"
+            f"📄 <b>Шаг 10/12: Договор подписан</b>\n\n"
             f"Подтвердите, что договор подписан:",
             reply_markup=ReplyKeyboardRemove(),
             parse_mode='HTML'
@@ -544,7 +544,7 @@ async def enter_twisted(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
 
 async def contract_signed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Обработка подтверждения договора и переход к выбору исполнителей"""
+    """Обработка подтверждения договора и переход к подключению Телеграмм Бота"""
     query = update.callback_query
     await query.answer()
     
@@ -555,6 +555,48 @@ async def contract_signed(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if 'connection_data' not in context.user_data:
         context.user_data['connection_data'] = {}
     context.user_data['connection_data']['contract_signed'] = True
+    
+    # Переходим к новому шагу "Телеграмм Бот"
+    keyboard = [
+        [InlineKeyboardButton("✅ Подтвердить", callback_data='telegram_bot_confirmed')],
+        [InlineKeyboardButton("⏭️ Пропустить", callback_data='telegram_bot_skipped')],
+        [InlineKeyboardButton("❌ Отмена", callback_data='cancel_connection')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        f"✅ Договор подписан\n\n"
+        f"🤖 <b>Шаг 11/12: Телеграмм Бот</b>\n\n"
+        f"Подтвердите, что абонентский Телеграмм Бот подключен:",
+        parse_mode='HTML'
+    )
+    
+    await query.message.reply_text(
+        "Выберите действие:",
+        reply_markup=reply_markup
+    )
+    
+    return TELEGRAM_BOT_CONFIRM
+
+
+async def telegram_bot_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Обработка подтверждения подключения Телеграмм Бота"""
+    query = update.callback_query
+    await query.answer()
+    
+    if query.data == 'cancel_connection':
+        return await cancel_connection(update, context)
+    
+    # Сохраняем информацию о подключении Телеграмм Бота
+    if 'connection_data' not in context.user_data:
+        context.user_data['connection_data'] = {}
+    
+    if query.data == 'telegram_bot_confirmed':
+        context.user_data['connection_data']['telegram_bot_connected'] = True
+        status_text = "✅ Телеграмм Бот подключен"
+    else:  # telegram_bot_skipped
+        context.user_data['connection_data']['telegram_bot_connected'] = False
+        status_text = "⏭️ Пропущено"
     
     # Получаем список сотрудников
     db = Database()
@@ -587,10 +629,10 @@ async def contract_signed(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await query.edit_message_text(
-        "✅ <b>Договор подписан</b>\n\n"
-        "👥 <b>Шаг 11/11: Выбор исполнителей</b>\n\n"
-        "Выберите сотрудников, которые участвовали в подключении:\n"
-        "(можно выбрать нескольких)",
+        f"{status_text}\n\n"
+        f"👥 <b>Шаг 12/12: Выбор исполнителей</b>\n\n"
+        f"Выберите сотрудников, которые участвовали в подключении:\n"
+        f"(можно выбрать нескольких)",
         parse_mode='HTML'
     )
     

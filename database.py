@@ -99,6 +99,14 @@ class Database:
             # Поле уже существует
             pass
         
+        # Добавляем поле telegram_bot_connected в существующую таблицу (если его нет)
+        try:
+            cursor.execute("ALTER TABLE connections ADD COLUMN telegram_bot_connected INTEGER DEFAULT 0")
+            logger.info("Добавлено поле telegram_bot_connected в таблицу connections")
+        except sqlite3.OperationalError:
+            # Поле уже существует
+            pass
+        
         # Таблица связи подключений и сотрудников (многие ко многим)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS connection_employees (
@@ -608,7 +616,8 @@ class Database:
         material_payer_id: Optional[int] = None,
         router_quantity: int = 1,
         contract_signed: bool = False,
-        router_access: bool = False
+        router_access: bool = False,
+        telegram_bot_connected: bool = False
     ) -> Optional[int]:
         """Создать новое подключение и списать материалы с указанного сотрудника
         
@@ -623,9 +632,9 @@ class Database:
             # Создаем запись подключения
             cursor.execute("""
                 INSERT INTO connections 
-                (connection_type, address, router_model, port, fiber_meters, twisted_pair_meters, created_by, router_quantity, contract_signed, router_access)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (connection_type, address, router_model, port, fiber_meters, twisted_pair_meters, created_by, router_quantity, 1 if contract_signed else 0, 1 if router_access else 0))
+                (connection_type, address, router_model, port, fiber_meters, twisted_pair_meters, created_by, router_quantity, contract_signed, router_access, telegram_bot_connected)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (connection_type, address, router_model, port, fiber_meters, twisted_pair_meters, created_by, router_quantity, 1 if contract_signed else 0, 1 if router_access else 0, 1 if telegram_bot_connected else 0))
             
             connection_id = cursor.lastrowid
             
@@ -737,7 +746,7 @@ class Database:
         # Получаем основную информацию
         cursor.execute("""
             SELECT id, connection_type, address, router_model, port, fiber_meters, 
-                   twisted_pair_meters, created_at, created_by, router_quantity, contract_signed, router_access
+                   twisted_pair_meters, created_at, created_by, router_quantity, contract_signed, router_access, telegram_bot_connected
             FROM connections
             WHERE id = ?
         """, (connection_id,))
