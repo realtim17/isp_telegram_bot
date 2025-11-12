@@ -61,28 +61,28 @@ def _format_report_text(connection_id: int, data: Dict, employee_names: List[str
     telegram_bot_status = "✅ Подключен" if telegram_bot_connected else "-"
     
     return f"""
-📋 <b>ОТЧЕТ О ПОДКЛЮЧЕНИИ #{connection_id}</b>
+<b>ОТЧЕТ О ПОДКЛЮЧЕНИИ #{connection_id}</b>
 
-🏢 <b>Тип подключения:</b> {type_name}
-📍 <b>Адрес:</b> {data['address']}
-🌐 <b>Модель роутера:</b> {router_info}
-🔐 <b>Доступ на роутер:</b> {router_access_status}
-📄 <b>Договор:</b> {contract_status}
-🤖 <b>Телеграмм Бот:</b> {telegram_bot_status}
-🔌 <b>Порт:</b> {port_display}
+<b>Тип подключения:</b> {type_name}
+<b>Адрес:</b> {data['address']}
+<b>Модель роутера:</b> {router_info}
+<b>Доступ на роутер:</b> {router_access_status}
+<b>Договор:</b> {contract_status}
+<b>Телеграмм Бот:</b> {telegram_bot_status}
+<b>Порт:</b> {port_display}
 
-📏 <b>Проложенный кабель:</b>
+<b>Проложенный кабель:</b>
   • ВОЛС: {data['fiber_meters']} м
   • Витая пара: {data['twisted_pair_meters']} м
 
-👥 <b>Исполнители ({emp_count}):</b>
+<b>Исполнители ({emp_count}):</b>
 {chr(10).join(['  • ' + name for name in employee_names])}
 
-💡 <b>Расчет на каждого исполнителя:</b>
+<b>Расчет на каждого исполнителя:</b>
   • ВОЛС: {fiber_per_emp} м
   • Витая пара: {twisted_per_emp} м
 
-📅 <b>Дата подключения:</b> {datetime.now().strftime('%d.%m.%Y %H:%M')}
+<b>Дата подключения:</b> {datetime.now().strftime('%d.%m.%Y %H:%M')}
 """
 
 

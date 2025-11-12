@@ -41,14 +41,31 @@ class EmployeeRepository(BaseRepository):
         """, (employee_id,), fetch_one=True)
     
     def delete(self, employee_id: int) -> bool:
-        """Удалить сотрудника"""
+        """Удалить сотрудника и все связанные данные"""
         try:
-            result = self.execute_query(
-                "DELETE FROM employees WHERE id = ?",
-                (employee_id,)
-            )
-            if result is not None:
-                logger.info(f"Удален сотрудник ID: {employee_id}")
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            # Сначала удаляем роутеры сотрудника (если CASCADE не настроен)
+            cursor.execute("DELETE FROM employee_routers WHERE employee_id = ?", (employee_id,))
+            deleted_routers = cursor.rowcount
+            
+            # Обнуляем балансы материалов (или можно оставить для истории)
+            cursor.execute("""
+                UPDATE employees 
+                SET fiber_balance = 0, twisted_pair_balance = 0 
+                WHERE id = ?
+            """, (employee_id,))
+            
+            # Удаляем сотрудника
+            cursor.execute("DELETE FROM employees WHERE id = ?", (employee_id,))
+            deleted_emp = cursor.rowcount > 0
+            
+            conn.commit()
+            conn.close()
+            
+            if deleted_emp:
+                logger.info(f"Удален сотрудник ID: {employee_id} и {deleted_routers} записей роутеров")
                 return True
             return False
         except Exception as e:

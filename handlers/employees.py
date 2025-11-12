@@ -621,30 +621,19 @@ async def enter_router_name(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             context.user_data.clear()
             return ConversationHandler.END
         
-        # Списываем один роутер
-        success = db.deduct_router_from_employee(emp_id, selected_router['router_name'], 1)
+        # Сохраняем информацию о роутере и запрашиваем количество
+        context.user_data['router_name'] = selected_router['router_name']
+        context.user_data['router_action'] = 'deduct'
         
-        employee = db.get_employee_by_id(emp_id)
+        await query.edit_message_text(
+            f"➖ <b>Списание роутера</b>\n\n"
+            f"📡 Роутер: {selected_router['router_name']}\n"
+            f"📊 Доступно: {selected_router['quantity']} шт.\n\n"
+            f"Введите количество для списания (целое число):",
+            parse_mode='HTML'
+        )
         
-        if success:
-            new_quantity = db.get_router_quantity(emp_id, selected_router['router_name'])
-            await query.edit_message_text(
-                f"✅ <b>Роутер списан!</b>\n\n"
-                f"👤 Сотрудник: {employee['full_name']}\n"
-                f"📡 Роутер: {selected_router['router_name']}\n"
-                f"➖ Списано: 1 шт.\n"
-                f"📊 Осталось: {new_quantity} шт.",
-                parse_mode='HTML'
-            )
-        else:
-            await query.edit_message_text(
-                f"❌ Ошибка при списании роутера.",
-                parse_mode='HTML'
-            )
-        
-        await query.message.reply_text("Выберите действие:", reply_markup=get_main_keyboard())
-        context.user_data.clear()
-        return ConversationHandler.END
+        return ENTER_ROUTER_QUANTITY
     
     # Это ввод названия нового роутера
     router_name = update.message.text.strip()
@@ -673,7 +662,7 @@ async def enter_router_quantity(update: Update, context: ContextTypes.DEFAULT_TY
         employee = db.get_employee_by_id(emp_id)
         
         if action == 'add':
-            success = db.add_router_to_employee(emp_id, router_name, quantity)
+            success = db.add_router_to_employee(emp_id, router_name, quantity, created_by=update.effective_user.id)
             if success:
                 new_quantity = db.get_router_quantity(emp_id, router_name)
                 await update.message.reply_text(
@@ -688,6 +677,24 @@ async def enter_router_quantity(update: Update, context: ContextTypes.DEFAULT_TY
             else:
                 await update.message.reply_text(
                     "❌ Ошибка при добавлении роутеров.",
+                    reply_markup=get_main_keyboard()
+                )
+        else:  # deduct
+            success = db.deduct_router_from_employee(emp_id, router_name, quantity, created_by=update.effective_user.id)
+            if success:
+                new_quantity = db.get_router_quantity(emp_id, router_name)
+                await update.message.reply_text(
+                    f"✅ <b>Роутеры списаны!</b>\n\n"
+                    f"👤 Сотрудник: {employee['full_name']}\n"
+                    f"📡 Роутер: {router_name}\n"
+                    f"➖ Списано: {quantity} шт.\n"
+                    f"📊 Осталось: {new_quantity} шт.",
+                    parse_mode='HTML',
+                    reply_markup=get_main_keyboard()
+                )
+            else:
+                await update.message.reply_text(
+                    "❌ Ошибка при списании роутеров (недостаточно в наличии).",
                     reply_markup=get_main_keyboard()
                 )
         
