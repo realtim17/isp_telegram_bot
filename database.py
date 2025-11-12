@@ -75,6 +75,30 @@ class Database:
             # Поле уже существует
             pass
         
+        # Добавляем поле router_quantity в существующую таблицу (если его нет)
+        try:
+            cursor.execute("ALTER TABLE connections ADD COLUMN router_quantity INTEGER DEFAULT 1")
+            logger.info("Добавлено поле router_quantity в таблицу connections")
+        except sqlite3.OperationalError:
+            # Поле уже существует
+            pass
+        
+        # Добавляем поле contract_signed в существующую таблицу (если его нет)
+        try:
+            cursor.execute("ALTER TABLE connections ADD COLUMN contract_signed INTEGER DEFAULT 0")
+            logger.info("Добавлено поле contract_signed в таблицу connections")
+        except sqlite3.OperationalError:
+            # Поле уже существует
+            pass
+        
+        # Добавляем поле router_access в существующую таблицу (если его нет)
+        try:
+            cursor.execute("ALTER TABLE connections ADD COLUMN router_access INTEGER DEFAULT 0")
+            logger.info("Добавлено поле router_access в таблицу connections")
+        except sqlite3.OperationalError:
+            # Поле уже существует
+            pass
+        
         # Таблица связи подключений и сотрудников (многие ко многим)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS connection_employees (
@@ -118,9 +142,62 @@ class Database:
             )
         """)
         
+        # Таблица логов движения материалов и роутеров
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS material_movement_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                employee_id INTEGER NOT NULL,
+                operation_type TEXT NOT NULL,
+                item_type TEXT NOT NULL,
+                item_name TEXT,
+                quantity REAL NOT NULL,
+                balance_after REAL,
+                connection_id INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_by INTEGER,
+                FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+                FOREIGN KEY (connection_id) REFERENCES connections(id) ON DELETE SET NULL
+            )
+        """)
+        
         conn.commit()
         conn.close()
         logger.info("Таблицы БД созданы успешно")
+    
+    # ==================== ЛОГИРОВАНИЕ ДВИЖЕНИЙ ====================
+    
+    def log_material_movement(self, employee_id: int, operation_type: str, item_type: str,
+                             item_name: str, quantity: float, balance_after: float,
+                             connection_id: Optional[int] = None, created_by: Optional[int] = None) -> bool:
+        """Записать движение материала/роутера в лог
+        
+        Args:
+            employee_id: ID сотрудника
+            operation_type: 'add' или 'deduct'
+            item_type: 'fiber', 'twisted_pair', 'router'
+            item_name: Название (для роутера) или тип материала
+            quantity: Количество
+            balance_after: Остаток после операции
+            connection_id: ID подключения (если списание при подключении)
+            created_by: ID пользователя, выполнившего операцию
+        """
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO material_movement_log 
+                (employee_id, operation_type, item_type, item_name, quantity, 
+                 balance_after, connection_id, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (employee_id, operation_type, item_type, item_name, quantity,
+                  balance_after, connection_id, created_by))
+            conn.commit()
+            conn.close()
+            logger.info(f"Logged movement: {operation_type} {quantity} {item_type} for employee {employee_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Ошибка при логировании движения: {e}")
+            return False
     
     # ==================== СОТРУДНИКИ ====================
     
@@ -182,7 +259,7 @@ class Database:
             return False
     
     def add_material_to_employee(self, employee_id: int, fiber_meters: float = 0, 
-                                 twisted_pair_meters: float = 0) -> bool:
+                                 twisted_pair_meters: float = 0, created_by: Optional[int] = None) -> bool:
         """Добавить материалы на баланс сотрудника"""
         try:
             conn = self.get_connection()
@@ -194,18 +271,41 @@ class Database:
                 WHERE id = ?
             """, (fiber_meters, twisted_pair_meters, employee_id))
             updated = cursor.rowcount > 0
-            conn.commit()
-            conn.close()
+            
             if updated:
+                # Получаем новый баланс
+                cursor.execute("""
+                    SELECT fiber_balance, twisted_pair_balance 
+                    FROM employees WHERE id = ?
+                """, (employee_id,))
+                row = cursor.fetchone()
+                new_fiber = row[0] if row else 0
+                new_twisted = row[1] if row else 0
+                
+                conn.commit()
+                conn.close()
+                
+                # Логируем операции
+                if fiber_meters > 0:
+                    self.log_material_movement(employee_id, 'add', 'fiber', 'ВОЛС', 
+                                              fiber_meters, new_fiber, None, created_by)
+                if twisted_pair_meters > 0:
+                    self.log_material_movement(employee_id, 'add', 'twisted_pair', 'Витая пара',
+                                              twisted_pair_meters, new_twisted, None, created_by)
+                
                 logger.info(f"Добавлено материалов сотруднику ID {employee_id}: "
                           f"ВОЛС +{fiber_meters}м, Витая пара +{twisted_pair_meters}м")
+            else:
+                conn.close()
             return updated
         except Exception as e:
             logger.error(f"Ошибка при добавлении материалов: {e}")
             return False
     
     def deduct_material_from_employee(self, employee_id: int, fiber_meters: float = 0,
-                                      twisted_pair_meters: float = 0) -> bool:
+                                      twisted_pair_meters: float = 0, 
+                                      connection_id: Optional[int] = None,
+                                      created_by: Optional[int] = None) -> bool:
         """Списать материалы с баланса сотрудника"""
         try:
             conn = self.get_connection()
@@ -246,12 +346,26 @@ class Database:
             """, (fiber_meters, twisted_pair_meters, employee_id))
             
             updated = cursor.rowcount > 0
-            conn.commit()
-            conn.close()
             
             if updated:
+                new_fiber = current_fiber - fiber_meters
+                new_twisted = current_twisted - twisted_pair_meters
+                
+                conn.commit()
+                conn.close()
+                
+                # Логируем операции
+                if fiber_meters > 0:
+                    self.log_material_movement(employee_id, 'deduct', 'fiber', 'ВОЛС',
+                                              fiber_meters, new_fiber, connection_id, created_by)
+                if twisted_pair_meters > 0:
+                    self.log_material_movement(employee_id, 'deduct', 'twisted_pair', 'Витая пара',
+                                              twisted_pair_meters, new_twisted, connection_id, created_by)
+                
                 logger.info(f"Списано материалов у сотрудника ID {employee_id}: "
                           f"ВОЛС -{fiber_meters}м, Витая пара -{twisted_pair_meters}м")
+            else:
+                conn.close()
             return updated
         except Exception as e:
             logger.error(f"Ошибка при списании материалов: {e}")
@@ -279,7 +393,8 @@ class Database:
     
     # ==================== РОУТЕРЫ СОТРУДНИКОВ ====================
     
-    def add_router_to_employee(self, employee_id: int, router_name: str, quantity: int) -> bool:
+    def add_router_to_employee(self, employee_id: int, router_name: str, quantity: int,
+                              created_by: Optional[int] = None) -> bool:
         """Добавить роутеры сотруднику"""
         try:
             conn = self.get_connection()
@@ -303,6 +418,7 @@ class Database:
                 logger.info(f"Обновлено количество роутеров '{router_name}' у сотрудника ID {employee_id}: +{quantity} (всего: {new_quantity})")
             else:
                 # Добавляем новую запись
+                new_quantity = quantity
                 cursor.execute("""
                     INSERT INTO employee_routers (employee_id, router_name, quantity)
                     VALUES (?, ?, ?)
@@ -311,12 +427,19 @@ class Database:
             
             conn.commit()
             conn.close()
+            
+            # Логируем операцию
+            self.log_material_movement(employee_id, 'add', 'router', router_name,
+                                      quantity, new_quantity, None, created_by)
+            
             return True
         except Exception as e:
             logger.error(f"Ошибка при добавлении роутеров: {e}")
             return False
     
-    def deduct_router_from_employee(self, employee_id: int, router_name: str, quantity: int = 1) -> bool:
+    def deduct_router_from_employee(self, employee_id: int, router_name: str, quantity: int = 1,
+                                    connection_id: Optional[int] = None,
+                                    created_by: Optional[int] = None) -> bool:
         """Списать роутер у сотрудника"""
         try:
             conn = self.get_connection()
@@ -357,6 +480,11 @@ class Database:
             
             conn.commit()
             conn.close()
+            
+            # Логируем операцию
+            self.log_material_movement(employee_id, 'deduct', 'router', router_name,
+                                      quantity, new_quantity, connection_id, created_by)
+            
             return True
         except Exception as e:
             logger.error(f"Ошибка при списании роутера: {e}")
@@ -424,6 +552,46 @@ class Database:
             logger.error(f"Ошибка при получении списка роутеров: {e}")
             return []
     
+    def get_employee_movements(self, employee_id: int, start_date: datetime, 
+                              end_date: datetime) -> List[Dict]:
+        """Получить все движения материалов и роутеров сотрудника за период"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    operation_type,
+                    item_type,
+                    item_name,
+                    quantity,
+                    balance_after,
+                    connection_id,
+                    created_at
+                FROM material_movement_log
+                WHERE employee_id = ? 
+                  AND created_at >= ? 
+                  AND created_at <= ?
+                ORDER BY created_at
+            """, (employee_id, start_date, end_date))
+            
+            movements = []
+            for row in cursor.fetchall():
+                movements.append({
+                    'operation_type': row[0],
+                    'item_type': row[1],
+                    'item_name': row[2],
+                    'quantity': row[3],
+                    'balance_after': row[4],
+                    'connection_id': row[5],
+                    'created_at': row[6]
+                })
+            
+            conn.close()
+            return movements
+        except Exception as e:
+            logger.error(f"Ошибка при получении движений: {e}")
+            return []
+    
     # ==================== ПОДКЛЮЧЕНИЯ ====================
     
     def create_connection(
@@ -437,7 +605,10 @@ class Database:
         employee_ids: List[int],
         photo_file_ids: List[str],
         created_by: int,
-        material_payer_id: Optional[int] = None
+        material_payer_id: Optional[int] = None,
+        router_quantity: int = 1,
+        contract_signed: bool = False,
+        router_access: bool = False
     ) -> Optional[int]:
         """Создать новое подключение и списать материалы с указанного сотрудника
         
@@ -452,9 +623,9 @@ class Database:
             # Создаем запись подключения
             cursor.execute("""
                 INSERT INTO connections 
-                (connection_type, address, router_model, port, fiber_meters, twisted_pair_meters, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (connection_type, address, router_model, port, fiber_meters, twisted_pair_meters, created_by))
+                (connection_type, address, router_model, port, fiber_meters, twisted_pair_meters, created_by, router_quantity, contract_signed, router_access)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (connection_type, address, router_model, port, fiber_meters, twisted_pair_meters, created_by, router_quantity, 1 if contract_signed else 0, 1 if router_access else 0))
             
             connection_id = cursor.lastrowid
             
@@ -496,32 +667,52 @@ class Database:
                     conn.close()
                     return None
                 
-                # Списываем весь материал с одного сотрудника
-                cursor.execute("""
-                    UPDATE employees 
-                    SET fiber_balance = fiber_balance - ?,
-                        twisted_pair_balance = twisted_pair_balance - ?
-                    WHERE id = ?
-                """, (fiber_meters, twisted_pair_meters, material_payer_id))
+                # Сохраняем в БД перед логированием
+                conn.commit()
+                conn.close()
+                
+                # Списываем весь материал с одного сотрудника (с логированием)
+                success = self.deduct_material_from_employee(
+                    material_payer_id, fiber_meters, twisted_pair_meters,
+                    connection_id, created_by
+                )
+                
+                if not success:
+                    logger.error(f"Не удалось списать материалы с сотрудника ID {material_payer_id}")
+                    return None
                 
                 logger.info(f"Списано у сотрудника ID {material_payer_id}: "
                           f"ВОЛС -{fiber_meters}м, Витая пара -{twisted_pair_meters}м (полная сумма)")
+                
+                # Переоткрываем соединение для фото
+                conn = self.get_connection()
+                cursor = conn.cursor()
             else:
                 # Старая логика: делим поровну между всеми
                 emp_count = len(employee_ids)
                 fiber_per_emp = fiber_meters / emp_count if emp_count > 0 else 0
                 twisted_per_emp = twisted_pair_meters / emp_count if emp_count > 0 else 0
                 
+                # Сохраняем в БД перед логированием
+                conn.commit()
+                conn.close()
+                
                 for emp_id in employee_ids:
-                    cursor.execute("""
-                        UPDATE employees 
-                        SET fiber_balance = fiber_balance - ?,
-                            twisted_pair_balance = twisted_pair_balance - ?
-                        WHERE id = ?
-                    """, (fiber_per_emp, twisted_per_emp, emp_id))
+                    # Списываем с логированием
+                    success = self.deduct_material_from_employee(
+                        emp_id, fiber_per_emp, twisted_per_emp,
+                        connection_id, created_by
+                    )
                     
-                    logger.info(f"Списано у сотрудника ID {emp_id}: "
-                              f"ВОЛС -{fiber_per_emp}м, Витая пара -{twisted_per_emp}м")
+                    if not success:
+                        logger.error(f"Не удалось списать материалы с сотрудника ID {emp_id}")
+                    else:
+                        logger.info(f"Списано у сотрудника ID {emp_id}: "
+                                  f"ВОЛС -{fiber_per_emp}м, Витая пара -{twisted_per_emp}м")
+                
+                # Переоткрываем соединение для фото
+                conn = self.get_connection()
+                cursor = conn.cursor()
             
             # Сохраняем фотографии
             for idx, photo_id in enumerate(photo_file_ids):
@@ -545,8 +736,8 @@ class Database:
         
         # Получаем основную информацию
         cursor.execute("""
-            SELECT id, address, router_model, port, fiber_meters, 
-                   twisted_pair_meters, created_at, created_by
+            SELECT id, connection_type, address, router_model, port, fiber_meters, 
+                   twisted_pair_meters, created_at, created_by, router_quantity, contract_signed, router_access
             FROM connections
             WHERE id = ?
         """, (connection_id,))

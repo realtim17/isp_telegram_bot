@@ -9,7 +9,7 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
     keyboard = [
         [KeyboardButton("📝 Новое подключение")],
         [KeyboardButton("📊 Сводный отчет")],
-        [KeyboardButton("👥 Управление сотрудниками")],
+        [KeyboardButton("👤 Список сотрудников"), KeyboardButton("👥 Управление сотрудниками")],
         [KeyboardButton("ℹ️ Помощь")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)

@@ -529,9 +529,20 @@ async def select_router_action(update: Update, context: ContextTypes.DEFAULT_TYP
     context.user_data['router_action'] = action
     
     if action == 'add':
+        # Предлагаем выбор из популярных моделей или ручной ввод
+        keyboard = [
+            [InlineKeyboardButton("📡 SNR AX 2", callback_data='router_model_SNR AX 2')],
+            [InlineKeyboardButton("📡 TP-Link AX 12", callback_data='router_model_TP-Link AX 12')],
+            [InlineKeyboardButton("📡 Keenetic Speedster", callback_data='router_model_Keenetic Speedster')],
+            [InlineKeyboardButton("✏️ Ввести вручную", callback_data='router_model_manual')],
+            [InlineKeyboardButton("❌ Отмена", callback_data='manage_cancel')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
         await query.edit_message_text(
             "➕ <b>Добавление роутеров</b>\n\n"
-            "Введите название роутера (например: Keenetic Giga):",
+            "Выберите модель роутера или введите свою:",
+            reply_markup=reply_markup,
             parse_mode='HTML'
         )
     else:  # deduct
@@ -571,6 +582,30 @@ async def enter_router_name(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     if update.callback_query:
         query = update.callback_query
         await query.answer()
+        
+        # Проверяем, это выбор модели или списание
+        if query.data.startswith('router_model_'):
+            # Выбор модели роутера при добавлении
+            if query.data == 'router_model_manual':
+                # Ручной ввод
+                await query.edit_message_text(
+                    "➕ <b>Добавление роутеров</b>\n\n"
+                    "Введите название роутера:",
+                    parse_mode='HTML'
+                )
+                return ENTER_ROUTER_NAME
+            else:
+                # Выбрана одна из предложенных моделей
+                router_name = query.data.replace('router_model_', '')
+                context.user_data['router_name'] = router_name
+                
+                await query.edit_message_text(
+                    f"➕ <b>Добавление роутеров</b>\n\n"
+                    f"Модель: {router_name}\n\n"
+                    f"Введите количество роутеров:",
+                    parse_mode='HTML'
+                )
+                return ENTER_ROUTER_QUANTITY
         
         # Это выбор роутера для списания
         router_id = int(query.data.split('_')[-1])
@@ -663,4 +698,56 @@ async def enter_router_quantity(update: Update, context: ContextTypes.DEFAULT_TY
             "⚠️ Пожалуйста, введите корректное целое число (например: 5)"
         )
         return ENTER_ROUTER_QUANTITY
+
+
+# ==================== СПИСОК СОТРУДНИКОВ ====================
+
+async def show_employees_list(update: Update, context: ContextTypes.DEFAULT_TYPE, db) -> None:
+    """Показать список всех сотрудников с их материалами"""
+    employees = db.get_all_employees()
+    
+    if not employees:
+        await update.message.reply_text(
+            "📋 <b>Список сотрудников пуст</b>\n\n"
+            "Добавьте сотрудников через меню\n"
+            "👥 Управление сотрудниками → ➕ Добавить сотрудника",
+            parse_mode='HTML',
+            reply_markup=get_main_keyboard()
+        )
+        return
+    
+    # Формируем сообщение со списком сотрудников
+    message = "👤 <b>Список сотрудников</b>\n\n"
+    
+    for idx, emp in enumerate(employees, 1):
+        emp_name = emp['full_name']
+        fiber_balance = emp.get('fiber_balance', 0) or 0
+        twisted_balance = emp.get('twisted_pair_balance', 0) or 0
+        
+        # Получаем роутеры сотрудника
+        routers = db.get_employee_routers(emp['id'])
+        router_count = sum(r['quantity'] for r in routers)
+        
+        message += f"{idx}. <b>{emp_name}</b>\n"
+        message += f"   📦 Материалы:\n"
+        message += f"   • ВОЛС: {fiber_balance} м\n"
+        message += f"   • Витая пара: {twisted_balance} м\n"
+        message += f"   📡 Роутеры: {router_count} шт.\n"
+        
+        # Показываем детали по роутерам
+        if routers:
+            message += "   Модели:\n"
+            for router in routers:
+                message += f"   • {router['router_name']}: {router['quantity']} шт.\n"
+        
+        message += "\n"
+    
+    message += "━━━━━━━━━━━━━━━━━━━━━━\n"
+    message += f"<b>Всего сотрудников:</b> {len(employees)}"
+    
+    await update.message.reply_text(
+        message,
+        parse_mode='HTML',
+        reply_markup=get_main_keyboard()
+    )
 

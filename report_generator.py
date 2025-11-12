@@ -20,7 +20,8 @@ class ReportGenerator:
         employee_name: str,
         connections: List[Dict],
         stats: Dict,
-        period_name: str
+        period_name: str,
+        movements: List[Dict] = None
     ) -> str:
         """
         Генерирует Excel-отчет по сотруднику
@@ -30,6 +31,7 @@ class ReportGenerator:
             connections: Список подключений
             stats: Итоговая статистика
             period_name: Название периода
+            movements: Список движений материалов и роутеров (опционально)
         
         Returns:
             Путь к созданному файлу
@@ -224,6 +226,10 @@ class ReportGenerator:
         cell.fill = PatternFill(start_color="70AD47", end_color="70AD47", fill_type="solid")
         cell.border = border
         
+        # Создаём второй лист с движениями материалов, если они есть
+        if movements and len(movements) > 0:
+            ReportGenerator._add_movements_sheet(wb, employee_name, period_name, movements)
+        
         # Сохранение файла
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f"report_{employee_name.replace(' ', '_')}_{timestamp}.xlsx"
@@ -231,3 +237,146 @@ class ReportGenerator:
         
         logger.info(f"Отчет создан: {filename}")
         return filename
+    
+    @staticmethod
+    def _add_movements_sheet(wb: Workbook, employee_name: str, period_name: str, movements: List[Dict]):
+        """
+        Добавляет лист с движениями материалов и роутеров
+        
+        Args:
+            wb: Workbook объект
+            employee_name: ФИО сотрудника
+            period_name: Название периода
+            movements: Список движений
+        """
+        # Создаём новый лист
+        ws = wb.create_sheet(title="Движение материалов")
+        
+        # Стили
+        header_font = Font(name='Arial', size=12, bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        
+        title_font = Font(name='Arial', size=14, bold=True)
+        title_alignment = Alignment(horizontal='center', vertical='center')
+        
+        cell_alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+        number_alignment = Alignment(horizontal='right', vertical='center')
+        
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # Зелёный для добавления
+        add_fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+        # Красный для списания
+        deduct_fill = PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid")
+        
+        # Заголовок
+        ws.merge_cells('A1:G1')
+        ws['A1'] = f"Движение материалов и роутеров"
+        ws['A1'].font = title_font
+        ws['A1'].alignment = title_alignment
+        
+        # Информация
+        ws.merge_cells('A2:G2')
+        ws['A2'] = f"Исполнитель: {employee_name}"
+        ws['A2'].font = Font(name='Arial', size=11, bold=True)
+        ws['A2'].alignment = cell_alignment
+        
+        ws.merge_cells('A3:G3')
+        ws['A3'] = f"Период: {period_name}"
+        ws['A3'].font = Font(name='Arial', size=11)
+        ws['A3'].alignment = cell_alignment
+        
+        # Заголовки столбцов
+        headers = [
+            'Дата',
+            'Операция',
+            'Тип',
+            'Название',
+            'Количество',
+            'Остаток',
+            'Связь с подключением'
+        ]
+        
+        ws.row_dimensions[5].height = 30
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=5, column=col_num)
+            cell.value = header
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+            cell.border = border
+        
+        # Ширина столбцов
+        ws.column_dimensions['A'].width = 18  # Дата
+        ws.column_dimensions['B'].width = 12  # Операция
+        ws.column_dimensions['C'].width = 15  # Тип
+        ws.column_dimensions['D'].width = 20  # Название
+        ws.column_dimensions['E'].width = 12  # Количество
+        ws.column_dimensions['F'].width = 12  # Остаток
+        ws.column_dimensions['G'].width = 20  # Связь
+        
+        # Данные движений
+        current_row = 6
+        for mov in movements:
+            # Форматируем дату
+            try:
+                created_at = datetime.fromisoformat(mov['created_at'])
+                date_str = created_at.strftime('%d.%m.%Y %H:%M')
+            except:
+                date_str = mov['created_at']
+            
+            # Операция
+            operation = "Добавление" if mov['operation_type'] == 'add' else "Списание"
+            
+            # Тип
+            type_map = {
+                'fiber': 'ВОЛС',
+                'twisted_pair': 'Витая пара',
+                'router': 'Роутер'
+            }
+            item_type = type_map.get(mov['item_type'], mov['item_type'])
+            
+            # Количество
+            if mov['item_type'] == 'router':
+                quantity_str = f"{int(mov['quantity'])} шт."
+                balance_str = f"{int(mov['balance_after'])} шт."
+            else:
+                quantity_str = f"{mov['quantity']} м"
+                balance_str = f"{mov['balance_after']} м"
+            
+            # Связь с подключением
+            conn_link = f"Подключение #{mov['connection_id']}" if mov['connection_id'] else "-"
+            
+            row_data = [
+                date_str,
+                operation,
+                item_type,
+                mov['item_name'],
+                quantity_str,
+                balance_str,
+                conn_link
+            ]
+            
+            # Определяем цвет фона
+            row_fill = add_fill if mov['operation_type'] == 'add' else deduct_fill
+            
+            for col_num, value in enumerate(row_data, 1):
+                cell = ws.cell(row=current_row, column=col_num)
+                cell.value = value
+                cell.border = border
+                cell.fill = row_fill
+                
+                if col_num in [5, 6]:  # Количество и остаток
+                    cell.alignment = number_alignment
+                else:
+                    cell.alignment = cell_alignment
+            
+            current_row += 1
+        
+        logger.info(f"Добавлен лист 'Движение материалов' с {len(movements)} записями")

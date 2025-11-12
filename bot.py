@@ -62,7 +62,8 @@ from handlers.employees import (
     select_employee_for_router,
     select_router_action,
     enter_router_name,
-    enter_router_quantity
+    enter_router_quantity,
+    show_employees_list
 )
 
 # Инициализация БД
@@ -164,9 +165,12 @@ def main():
             SELECT_EMPLOYEE_FOR_ROUTER: [CallbackQueryHandler(select_employee_for_router_wrapper, pattern='^(rtr_emp_|back_to_manage)')],
             SELECT_ROUTER_ACTION: [
                 CallbackQueryHandler(select_router_action_wrapper, pattern='^(rtr_action_|rtr_back_to_list)'),
-                CallbackQueryHandler(enter_router_name_wrapper, pattern='^deduct_router_')
+                CallbackQueryHandler(enter_router_name_wrapper, pattern='^(deduct_router_|router_model_)')
             ],
-            ENTER_ROUTER_NAME: [MessageHandler(text_input_filter, enter_router_name_wrapper)],
+            ENTER_ROUTER_NAME: [
+                CallbackQueryHandler(enter_router_name_wrapper, pattern='^router_model_'),
+                MessageHandler(text_input_filter, enter_router_name_wrapper)
+            ],
             ENTER_ROUTER_QUANTITY: [MessageHandler(text_input_filter, enter_router_quantity_wrapper)]
         },
         fallbacks=[
@@ -175,12 +179,17 @@ def main():
         ]
     )
     
+    # Wrapper для show_employees_list
+    async def show_employees_list_wrapper(update, context):
+        return await show_employees_list(update, context, db)
+    
     # Добавляем обработчики
     application.add_handler(CommandHandler('start', start_command))
     application.add_handler(CommandHandler('help', help_command))
     application.add_handler(connection_conv)
     application.add_handler(report_conv)
     application.add_handler(manage_conv)
+    application.add_handler(MessageHandler(filters.Regex('^👤 Список сотрудников$'), show_employees_list_wrapper))
     application.add_handler(MessageHandler(filters.Regex('^ℹ️ Помощь$'), help_command))
     
     # Fallback для неизвестных команд

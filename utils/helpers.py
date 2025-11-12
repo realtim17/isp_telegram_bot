@@ -32,13 +32,39 @@ def _format_report_text(connection_id: int, data: Dict, employee_names: List[str
     fiber_per_emp = round(data['fiber_meters'] / emp_count, 2)
     twisted_per_emp = round(data['twisted_pair_meters'] / emp_count, 2)
     
+    # Получаем информацию о роутерах (если есть)
+    router_model = data.get('router_model', '-')
+    router_quantity = data.get('router_quantity', 1)
+    
+    # Если роутер пропущен или "-", отображаем "-"
+    if router_model == '-' or not router_model:
+        router_info = "-"
+    else:
+        router_info = router_model
+        if router_quantity > 1:
+            router_info += f" ({router_quantity} шт.)"
+    
+    # Получаем информацию о порте
+    port = data.get('port', '-')
+    port_display = port if port and port != '' else '-'
+    
+    # Получаем информацию о договоре
+    contract_signed = data.get('contract_signed', False)
+    contract_status = "✅ Подписан" if contract_signed else "❌ Не подписан"
+    
+    # Получаем информацию о доступе на роутер
+    router_access = data.get('router_access', False)
+    router_access_status = "✅ Получен" if router_access else "⏭️ Пропущено"
+    
     return f"""
 📋 <b>ОТЧЕТ О ПОДКЛЮЧЕНИИ #{connection_id}</b>
 
 🏢 <b>Тип подключения:</b> {type_name}
 📍 <b>Адрес:</b> {data['address']}
-🌐 <b>Модель роутера:</b> {data['router_model']}
-🔌 <b>Порт:</b> {data['port']}
+🌐 <b>Модель роутера:</b> {router_info}
+🔐 <b>Доступ на роутер:</b> {router_access_status}
+📄 <b>Договор:</b> {contract_status}
+🔌 <b>Порт:</b> {port_display}
 
 📏 <b>Проложенный кабель:</b>
   • ВОЛС: {data['fiber_meters']} м

@@ -106,9 +106,15 @@ async def report_generate(update: Update, context: ContextTypes.DEFAULT_TYPE, db
     # Получаем данные из БД
     connections, stats = db.get_employee_report(emp_id, days)
     
-    if not connections:
+    # Получаем движения материалов за период
+    from datetime import datetime, timedelta
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days) if days else datetime(2020, 1, 1)
+    movements = db.get_employee_movements(emp_id, start_date, end_date)
+    
+    if not connections and not movements:
         await query.message.reply_text(
-            f"ℹ️ У сотрудника <b>{employee['full_name']}</b> нет подключений за выбранный период.",
+            f"ℹ️ У сотрудника <b>{employee['full_name']}</b> нет данных за выбранный период.",
             parse_mode='HTML',
             reply_markup=get_main_keyboard()
         )
@@ -121,7 +127,8 @@ async def report_generate(update: Update, context: ContextTypes.DEFAULT_TYPE, db
             employee_name=employee['full_name'],
             connections=connections,
             stats=stats,
-            period_name=period_name
+            period_name=period_name,
+            movements=movements
         )
         
         # Отправляем файл
