@@ -568,12 +568,8 @@ async def contract_signed(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         f"✅ Договор подписан\n\n"
         f"🤖 <b>Шаг 11/12: Телеграмм Бот</b>\n\n"
         f"Подтвердите, что абонентский Телеграмм Бот подключен:",
+        reply_markup=reply_markup,
         parse_mode='HTML'
-    )
-    
-    await query.message.reply_text(
-        "Выберите действие:",
-        reply_markup=reply_markup
     )
     
     return TELEGRAM_BOT_CONFIRM
