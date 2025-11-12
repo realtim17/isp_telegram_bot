@@ -150,11 +150,12 @@ class RouterRepository(BaseRepository):
             return 0
     
     def get_all_names(self) -> List[str]:
-        """Получить список всех уникальных названий роутеров"""
+        """Получить список всех уникальных названий роутеров, которые есть в наличии"""
         try:
             results = self.execute_query("""
                 SELECT DISTINCT router_name 
                 FROM employee_routers 
+                WHERE quantity > 0
                 ORDER BY router_name
             """, fetch_all=True) or []
             
