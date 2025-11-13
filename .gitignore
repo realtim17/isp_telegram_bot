@@ -10,3 +10,5 @@ ENV/
 *.xlsx
 photos/
 bot.log
+
+.DS_Store
