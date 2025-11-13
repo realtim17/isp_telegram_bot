@@ -627,11 +627,11 @@ async def enter_router_name(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         
         await query.edit_message_text(
             f"➖ <b>Списание роутера</b>\n\n"
-            f"📡 Роутер: {selected_router['router_name']}\n"
+                f"📡 Роутер: {selected_router['router_name']}\n"
             f"📊 Доступно: {selected_router['quantity']} шт.\n\n"
             f"Введите количество для списания (целое число):",
-            parse_mode='HTML'
-        )
+                parse_mode='HTML'
+            )
         
         return ENTER_ROUTER_QUANTITY
     

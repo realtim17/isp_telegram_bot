@@ -68,28 +68,38 @@ async def show_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     contract_signed = data.get('contract_signed', False)
     contract_status = "✅ Подписан" if contract_signed else "❌ Не подписан"
     
+    # Получаем информацию о доступе на роутер
+    router_access = data.get('router_access', False)
+    router_access_status = "✅ Получен" if router_access else "⏭️ Пропущено"
+    
+    # Получаем информацию о Телеграмм Боте
+    telegram_bot_connected = data.get('telegram_bot_connected', False)
+    telegram_bot_status = "✅ Подключен" if telegram_bot_connected else "-"
+    
     confirmation_text = f"""
-📋 <b>Подтверждение данных</b>
+<b>📋 Подтверждение данных</b>
 
-🏢 <b>Тип:</b> {type_name}
-📍 <b>Адрес:</b> {data['address']}
-🌐 <b>Роутер:</b> {router_display}
-🔌 <b>Порт:</b> {port_display}
+<b>📍 Адрес:</b> {data['address']}
 
-📏 <b>Метраж:</b>
+<b>Тип подключения:</b> {type_name}
+<b>Модель роутера:</b> {router_display}
+<b>Доступ на роутер:</b> {router_access_status}
+<b>Договор:</b> {contract_status}
+<b>Телеграмм Бот:</b> {telegram_bot_status}
+<b>Порт:</b> {port_display}
+
+<b>📏 Проложенный кабель:</b>
   • ВОЛС: {data['fiber_meters']} м
   • Витая пара: {data['twisted_pair_meters']} м
 
-📄 <b>Договор:</b> {contract_status}
+<b>👥 Исполнители ({emp_count}):</b>
+{chr(10).join(['  • ' + name for name in employee_names])}
 
-👥 <b>Исполнители ({emp_count}):</b>
-{chr(10).join([f"  • {name}" for name in employee_names])}
-
-<b>Метраж на каждого (для зарплаты):</b>
+<b>💡 Расчет на каждого исполнителя:</b>
   • ВОЛС: {fiber_per_emp} м
   • Витая пара: {twisted_per_emp} м{payer_info}
 
-📸 <b>Фото:</b> {len(photos)} шт.
+<b>📸 Фото:</b> {len(photos)} шт.
 
 Всё верно? Подтвердите создание отчета.
 """
